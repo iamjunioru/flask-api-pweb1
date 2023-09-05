@@ -2,9 +2,13 @@ from flask_restful import Resource, reqparse
 from flask import jsonify
 from models import db, Tutor, Pet
 from datetime import datetime
+from flask_jwt_extended import jwt_required
 
-
+def __init__(self, app): 
+    self.app = app  
 class GetAllResource(Resource):
+    
+    @jwt_required()
     def get(self):
         tutors = Tutor.query.all()
         tutors_data = []
@@ -41,7 +45,7 @@ class TutorResource(Resource):
             "telefone": tutor.telefone,
             "pets": [{"id": pet.id, "nome": pet.nome, "especie": pet.especie, "tamanho": pet.tamanho, "tutor_id": pet.tutor_id} for pet in tutor.pets],
         }
-
+    @jwt_required()
     def get(self, tutor_id=None):
         if tutor_id is None:
             return jsonify({"message": "Coloque o ID do tutor"}), 400
@@ -74,7 +78,7 @@ class TutorResource(Resource):
         
         return tutor_data, 200
         # return jsonify({"tutor": tutor_data})
-
+    @jwt_required()
     def put(self, tutor_id):
         tutor = Tutor.query.get(tutor_id)
         if not tutor:
@@ -97,7 +101,7 @@ class TutorResource(Resource):
 
         return ({"message": "Tutor updated successfully", "tutor": self.format_tutor_data(tutor)}), 200
         return jsonify({"message": "Tutor updated successfully", "tutor": self.format_tutor_data(tutor)})
-
+    @jwt_required()
     def delete(self, tutor_id):
         tutor = Tutor.query.get(tutor_id)
         if not tutor:
@@ -114,6 +118,7 @@ class TutorResource(Resource):
 
 
 class PetResource(Resource):
+    @jwt_required()
     def get(self, pet_id=None, tutor_id=None):
         if pet_id is not None:
             pet = Pet.query.get(pet_id)
@@ -126,7 +131,7 @@ class PetResource(Resource):
             pets = Pet.query.filter_by(tutor_id=tutor_id).all()
             pets_data = [{"id": pet.id, "nome": pet.nome, "especie": pet.especie, "tamanho": pet.tamanho, "tutor_id": pet.tutor_id} for pet in pets]
             return jsonify(pets_data)
-
+    @jwt_required()
     def post(self):
         parser = reqparse.RequestParser()
         parser.add_argument("nome", type=str, required=True)
@@ -156,7 +161,7 @@ class PetResource(Resource):
         }
 
         return pet_data, 200
-
+    @jwt_required()
     def put(self, pet_id):
         pet = Pet.query.get(pet_id)
         if not pet:
@@ -178,7 +183,7 @@ class PetResource(Resource):
         db.session.commit()
 
         return jsonify({"message": "Pet updated successfully", "pet": {"id": pet.id, "nome": pet.nome, "especie": pet.especie, "tamanho": pet.tamanho, "data_aniversario": pet.data_aniversario, "tutor_id": pet.tutor_id}})
-
+    @jwt_required()
     def delete(self, pet_id):
         pet = Pet.query.get(pet_id)
         if not pet:
