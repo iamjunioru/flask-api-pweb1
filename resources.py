@@ -2,7 +2,6 @@ from flask_restful import Resource, reqparse
 from flask import jsonify
 from models import db, Tutor, Pet
 from datetime import datetime
-from collections import OrderedDict
 
 
 class GetAllResource(Resource):
@@ -32,34 +31,30 @@ class GetAllResource(Resource):
              })
 
         return jsonify(tutors_data)
+
 class TutorResource(Resource):
+    def format_tutor_data(self, tutor):
+        return {
+            "id": tutor.id,
+            "nome": tutor.nome,
+            "email": tutor.email,
+            "senha_hash": tutor.senha_hash,
+            "cidade": tutor.cidade,
+            "telefone": tutor.telefone,
+            "pets": [{"id": pet.id, "nome": pet.nome} for pet in tutor.pets],
+        }
+
     def get(self, tutor_id=None):
         if tutor_id is None:
-            tutors = Tutor.query.all()
-            tutors_data = []
+            return jsonify({"message": "Coloque o ID do tutor"}), 400
 
-            for tutor in tutors:
-                tutor_data = {
-                    "id": tutor.id,
-                    "nome": tutor.nome,
-                    "email": tutor.email,
-                    "senha_hash": tutor.senha_hash,
-                    "cidade": tutor.cidade,
-                    "telefone": tutor.telefone,
-                    "pets": [{"id": pet.id, "nome": pet.nome} for pet in tutor.pets],
-                }
-                tutors_data.append({
-                    "id": tutor_data["id"],
-                    "nome": tutor_data["nome"],
-                    "email": tutor_data["email"],
-                    "senha_hash": tutor_data["senha_hash"],
-                    "cidade": tutor_data["cidade"],
-                    "telefone": tutor_data["telefone"],
-                    "pets": tutor_data["pets"],
-                })
-
-            return jsonify(tutors_data)
+        tutor = Tutor.query.get(tutor_id)
+        if not tutor:
+            return jsonify({"message": "Tutor not found"})
         
+        tutor_data = self.format_tutor_data(tutor)
+        return jsonify(tutor_data)
+
     def post(self):
         parser = reqparse.RequestParser()
         parser.add_argument("nome", type=str, required=True)
@@ -69,25 +64,14 @@ class TutorResource(Resource):
         parser.add_argument("cidade", type=str, required=True)
         args = parser.parse_args()
 
-        # validar os dados usando oschema
-        # errors = tutor_schema.validate(args)
-        # if errors:
-        #    return jsonify({"errors": errors}), 400
-        # p criar um novo tutor e definior a senha como um hash
         novo_tutor = Tutor(nome=args["nome"], email=args["email"], telefone=args["telefone"], cidade=args["cidade"])
-        novo_tutor.set_senha(args["senha"])  # config a senha como hash
+        novo_tutor.set_senha(args["senha"])
 
         db.session.add(novo_tutor)
         db.session.commit()
 
-        tutor_data = {
-                "id": novo_tutor.id,
-                "nome": novo_tutor.nome,
-                "email": novo_tutor.email,
-                "senha": novo_tutor.senha_hash, 
-                "telefone": novo_tutor.telefone,
-                "cidade": novo_tutor.cidade,
-            }
+        tutor_data = self.format_tutor_data(novo_tutor)
+        # return tutor_data, 200
         return jsonify({"tutor": tutor_data})
 
     def put(self, tutor_id):
@@ -110,8 +94,8 @@ class TutorResource(Resource):
         tutor.cidade = args["cidade"]
         db.session.commit()
 
-        return jsonify({"message": "Tutor updated successfully", "tutor": {"id": tutor.id, "nome": tutor.nome, "email": tutor.email, "telefone": tutor.telefone, "cidade": tutor.cidade}})
-    
+        return jsonify({"message": "Tutor updated successfully", "tutor": self.format_tutor_data(tutor)})
+
     def delete(self, tutor_id):
         tutor = Tutor.query.get(tutor_id)
         if not tutor:
@@ -122,7 +106,9 @@ class TutorResource(Resource):
 
         db.session.delete(tutor)
         db.session.commit()
+
         return jsonify({"message": "Tutor deleted successfully"})
+
 
 class PetResource(Resource):
     def get(self, pet_id=None, tutor_id=None):
