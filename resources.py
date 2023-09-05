@@ -2,6 +2,8 @@ from flask_restful import Resource, reqparse
 from flask import jsonify
 from models import db, Tutor, Pet
 from datetime import datetime
+from collections import OrderedDict
+
 
 class GetAllResource(Resource):
     def get(self):
@@ -13,11 +15,21 @@ class GetAllResource(Resource):
                 "id": tutor.id,
                 "nome": tutor.nome,
                 "email": tutor.email,
+                "senha_hash": tutor.senha_hash,
                 "cidade": tutor.cidade,
                 "telefone": tutor.telefone,
                 "pets": [{"id": pet.id, "nome": pet.nome, "especie": pet.especie} for pet in tutor.pets],
             }
-            tutors_data.append(tutor_data)
+            # tutors_data.append(tutor_data)
+            tutors_data.append({
+                "id": tutor_data["id"],
+                "nome": tutor_data["nome"],
+                "email": tutor_data["email"],
+                "senha_hash": tutor_data["senha_hash"],
+                "cidade": tutor_data["cidade"],
+                "telefone": tutor_data["telefone"],
+                "pets": tutor_data["pets"],
+             })
 
         return jsonify(tutors_data)
 class TutorResource(Resource):
@@ -31,7 +43,7 @@ class TutorResource(Resource):
                     "id": tutor.id,
                     "nome": tutor.nome,
                     "email": tutor.email,
-                    "senha_hash": tutor.senha_hash, #i ncluir senha em ahsh
+                    "senha_hash": tutor.senha_hash,
                     "cidade": tutor.cidade,
                     "telefone": tutor.telefone,
                     "pets": [{"id": pet.id, "nome": pet.nome} for pet in tutor.pets],
@@ -57,6 +69,10 @@ class TutorResource(Resource):
         parser.add_argument("cidade", type=str, required=True)
         args = parser.parse_args()
 
+        # validar os dados usando oschema
+        # errors = tutor_schema.validate(args)
+        # if errors:
+        #    return jsonify({"errors": errors}), 400
         # p criar um novo tutor e definior a senha como um hash
         novo_tutor = Tutor(nome=args["nome"], email=args["email"], telefone=args["telefone"], cidade=args["cidade"])
         novo_tutor.set_senha(args["senha"])  # config a senha como hash
@@ -65,13 +81,14 @@ class TutorResource(Resource):
         db.session.commit()
 
         tutor_data = {
-            "id": novo_tutor.id,
-            "nome": novo_tutor.nome,
-            "email": novo_tutor.email,
-            "telefone": novo_tutor.telefone,
-            "cidade": novo_tutor.cidade,
-        }
-        return jsonify({"message": "Tutor created successfully", "tutor": tutor_data})
+                "id": novo_tutor.id,
+                "nome": novo_tutor.nome,
+                "email": novo_tutor.email,
+                "senha": novo_tutor.senha_hash, 
+                "telefone": novo_tutor.telefone,
+                "cidade": novo_tutor.cidade,
+            }
+        return jsonify({"tutor": tutor_data})
 
     def put(self, tutor_id):
         tutor = Tutor.query.get(tutor_id)
@@ -130,11 +147,16 @@ class PetResource(Resource):
         parser.add_argument("tutor_id", type=int, required=True)
         args = parser.parse_args()
 
+        # errors = pet_schema.validate(args)
+        # if errors:
+        #    return jsonify({"errors": errors}), 400
+
         tutor = Tutor.query.get(args["tutor_id"])
         if not tutor:
             return jsonify({"message": "Tutor not found"})
+        
 
-        # convertendodata de aniversário para o formato adequado (por exe "01-12-2023")
+        # ("01-12-2023")
         data_aniversario = datetime.strptime(args["data_aniversario"], "%d-%m-%Y").date()
 
         pet = Pet(nome=args["nome"], especie=args["especie"], tamanho=args["tamanho"], data_aniversario=data_aniversario, tutor=tutor)
@@ -155,7 +177,7 @@ class PetResource(Resource):
         parser.add_argument("data_aniversario", type=str, required=True)
         args = parser.parse_args()
         
-        data_aniversario = datetime.strptime(args["data_aniversario"], "%Y-%m-%d").date()
+        data_aniversario = datetime.strptime(args["data_aniversario"], "%d-%m-%Y").date()
 
         pet.nome = args["nome"]
         pet.especie = args["especie"]
