@@ -1,39 +1,26 @@
 from flask_restful import Resource, reqparse
-from flask import jsonify
+from flask import jsonify, request
 from models import db, Tutor, Pet
 from datetime import datetime
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import jwt_required, create_access_token
 
-def __init__(self, app): 
-    self.app = app  
+def authenticate():
+    data = request.get_json()
+    email = data.get("email")
+    senha = data.get("senha")
+
+    user = Tutor.query.filter_by(email=email).first()
+    if user and user.check_senha(senha):
+        access_token = create_access_token(identity=user.id)
+        return {"access_token": access_token}, 200
+    else:
+        return {"message": "Email or password is invalid"}, 401
 class GetAllResource(Resource):
-    
     @jwt_required()
     def get(self):
         tutors = Tutor.query.all()
-        tutors_data = []
-
-        for tutor in tutors:
-            tutor_data = {
-                "id": tutor.id,
-                "nome": tutor.nome,
-                "email": tutor.email,
-                "cidade": tutor.cidade,
-                "telefone": tutor.telefone,
-                "pets": [{"id": pet.id, "nome": pet.nome, "especie": pet.especie, "tamanho": pet.tamanho, "tutor_id": pet.tutor_id} for pet in tutor.pets],
-            }
-            # tutors_data.append(tutor_data)
-            tutors_data.append({
-                "id": tutor_data["id"],
-                "nome": tutor_data["nome"],
-                "email": tutor_data["email"],
-                "cidade": tutor_data["cidade"],
-                "telefone": tutor_data["telefone"],
-                "pets": tutor_data["pets"],
-             })
-
+        tutors_data = [t.serialize() for t in tutors]
         return tutors_data, 200
-
 class TutorResource(Resource):
     def format_tutor_data(self, tutor):
         return {
@@ -45,19 +32,18 @@ class TutorResource(Resource):
             "telefone": tutor.telefone,
             "pets": [{"id": pet.id, "nome": pet.nome, "especie": pet.especie, "tamanho": pet.tamanho, "tutor_id": pet.tutor_id} for pet in tutor.pets],
         }
+        
     @jwt_required()
     def get(self, tutor_id=None):
         if tutor_id is None:
-            return jsonify({"message": "Coloque o ID do tutor"}), 400
+            return jsonify({"message": "Put the tutor's ID"}), 400
 
         tutor = Tutor.query.get(tutor_id)
         if not tutor:
             return jsonify({"message": "Tutor not found"})
-        
-        tutor_data = self.format_tutor_data(tutor)
-        
+
+        tutor_data = tutor.serialize()
         return tutor_data, 200
-        # return jsonify(tutor_data)
 
     def post(self):
         parser = reqparse.RequestParser()
@@ -74,10 +60,10 @@ class TutorResource(Resource):
         db.session.add(novo_tutor)
         db.session.commit()
 
-        tutor_data = self.format_tutor_data(novo_tutor)
-        
+        tutor_data = novo_tutor.serialize()
         return tutor_data, 200
-        # return jsonify({"tutor": tutor_data})
+        # return jsonify({"message": "Tutor created successfully", "tutor": self.format_tutor_data(novo_tutor)}), 201       
+    
     @jwt_required()
     def put(self, tutor_id):
         tutor = Tutor.query.get(tutor_id)
@@ -99,8 +85,8 @@ class TutorResource(Resource):
         tutor.cidade = args["cidade"]
         db.session.commit()
 
-        return ({"message": "Tutor updated successfully", "tutor": self.format_tutor_data(tutor)}), 200
-        return jsonify({"message": "Tutor updated successfully", "tutor": self.format_tutor_data(tutor)})
+        return ({"message": "Tutor updated successfully"}), 200
+        # return jsonify({"message": "Tutor updated successfully", "tutor": self.format_tutor_data(tutor)})
     @jwt_required()
     def delete(self, tutor_id):
         tutor = Tutor.query.get(tutor_id)
@@ -182,7 +168,8 @@ class PetResource(Resource):
         pet.data_aniversario = data_aniversario
         db.session.commit()
 
-        return jsonify({"message": "Pet updated successfully", "pet": {"id": pet.id, "nome": pet.nome, "especie": pet.especie, "tamanho": pet.tamanho, "data_aniversario": pet.data_aniversario, "tutor_id": pet.tutor_id}})
+        return ({"message": "Pet updated successfully"}), 200
+    
     @jwt_required()
     def delete(self, pet_id):
         pet = Pet.query.get(pet_id)
