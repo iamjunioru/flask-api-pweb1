@@ -14,23 +14,21 @@ class GetAllResource(Resource):
                 "id": tutor.id,
                 "nome": tutor.nome,
                 "email": tutor.email,
-                "senha_hash": tutor.senha_hash,
                 "cidade": tutor.cidade,
                 "telefone": tutor.telefone,
-                "pets": [{"id": pet.id, "nome": pet.nome, "especie": pet.especie} for pet in tutor.pets],
+                "pets": [{"id": pet.id, "nome": pet.nome, "especie": pet.especie, "tamanho": pet.tamanho, "tutor_id": pet.tutor_id} for pet in tutor.pets],
             }
             # tutors_data.append(tutor_data)
             tutors_data.append({
                 "id": tutor_data["id"],
                 "nome": tutor_data["nome"],
                 "email": tutor_data["email"],
-                "senha_hash": tutor_data["senha_hash"],
                 "cidade": tutor_data["cidade"],
                 "telefone": tutor_data["telefone"],
                 "pets": tutor_data["pets"],
              })
 
-        return jsonify(tutors_data)
+        return tutors_data, 200
 
 class TutorResource(Resource):
     def format_tutor_data(self, tutor):
@@ -38,10 +36,10 @@ class TutorResource(Resource):
             "id": tutor.id,
             "nome": tutor.nome,
             "email": tutor.email,
-            "senha_hash": tutor.senha_hash,
+            "senha": tutor.senha_hash,
             "cidade": tutor.cidade,
             "telefone": tutor.telefone,
-            "pets": [{"id": pet.id, "nome": pet.nome} for pet in tutor.pets],
+            "pets": [{"id": pet.id, "nome": pet.nome, "especie": pet.especie, "tamanho": pet.tamanho, "tutor_id": pet.tutor_id} for pet in tutor.pets],
         }
 
     def get(self, tutor_id=None):
@@ -53,7 +51,9 @@ class TutorResource(Resource):
             return jsonify({"message": "Tutor not found"})
         
         tutor_data = self.format_tutor_data(tutor)
-        return jsonify(tutor_data)
+        
+        return tutor_data, 200
+        # return jsonify(tutor_data)
 
     def post(self):
         parser = reqparse.RequestParser()
@@ -71,8 +71,9 @@ class TutorResource(Resource):
         db.session.commit()
 
         tutor_data = self.format_tutor_data(novo_tutor)
-        # return tutor_data, 200
-        return jsonify({"tutor": tutor_data})
+        
+        return tutor_data, 200
+        # return jsonify({"tutor": tutor_data})
 
     def put(self, tutor_id):
         tutor = Tutor.query.get(tutor_id)
@@ -94,6 +95,7 @@ class TutorResource(Resource):
         tutor.cidade = args["cidade"]
         db.session.commit()
 
+        return ({"message": "Tutor updated successfully", "tutor": self.format_tutor_data(tutor)}), 200
         return jsonify({"message": "Tutor updated successfully", "tutor": self.format_tutor_data(tutor)})
 
     def delete(self, tutor_id):
@@ -107,6 +109,7 @@ class TutorResource(Resource):
         db.session.delete(tutor)
         db.session.commit()
 
+        return ({"message": "Tutor deleted successfully"}), 200
         return jsonify({"message": "Tutor deleted successfully"})
 
 
@@ -116,12 +119,12 @@ class PetResource(Resource):
             pet = Pet.query.get(pet_id)
             if not pet:
                 return {"message": "Pet not found"}, 404
-            pet_data = {"id": pet.id, "nome": pet.nome, "tutor_id": pet.tutor_id}
-            return jsonify(pet_data)
+            pet_data = {"id": pet.id, "nome": pet.nome,  "especie": pet.especie, "tamanho": pet.tamanho, "tutor_id": pet.tutor_id}
+            return pet_data
 
         if tutor_id is not None:
             pets = Pet.query.filter_by(tutor_id=tutor_id).all()
-            pets_data = [{"id": pet.id, "nome": pet.nome, "tutor_id": pet.tutor_id} for pet in pets]
+            pets_data = [{"id": pet.id, "nome": pet.nome, "especie": pet.especie, "tamanho": pet.tamanho, "tutor_id": pet.tutor_id} for pet in pets]
             return jsonify(pets_data)
 
     def post(self):
@@ -133,23 +136,26 @@ class PetResource(Resource):
         parser.add_argument("tutor_id", type=int, required=True)
         args = parser.parse_args()
 
-        # errors = pet_schema.validate(args)
-        # if errors:
-        #    return jsonify({"errors": errors}), 400
-
         tutor = Tutor.query.get(args["tutor_id"])
         if not tutor:
-            return jsonify({"message": "Tutor not found"})
-        
+            return {"message": "Tutor not found"}, 404
 
-        # ("01-12-2023")
         data_aniversario = datetime.strptime(args["data_aniversario"], "%d-%m-%Y").date()
 
         pet = Pet(nome=args["nome"], especie=args["especie"], tamanho=args["tamanho"], data_aniversario=data_aniversario, tutor=tutor)
         db.session.add(pet)
         db.session.commit()
-        pet_data = {"id": pet.id, "nome": pet.nome, "especie": pet.especie, "tamanho": pet.tamanho, "data_aniversario": pet.data_aniversario, "tutor_id": pet.tutor_id}
-        return jsonify({"message": "Pet created successfully", "pet": pet_data})
+
+        pet_data = {
+            "id": pet.id,
+            "nome": pet.nome,
+            "especie": pet.especie,
+            "tamanho": pet.tamanho,
+            "data_aniversario": args["data_aniversario"], 
+            "tutor_id": pet.tutor_id
+        }
+
+        return pet_data, 200
 
     def put(self, pet_id):
         pet = Pet.query.get(pet_id)
